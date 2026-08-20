@@ -71,6 +71,13 @@ An ArchUnit test fails the build if that stops being true — and it ships with 
 demonstration that it can fail, because a boundary check that has only ever been
 seen passing is not evidence of anything.
 
+## Two ways to read a balance
+
+`Journal` replays every entry — the readable definition, and the one the
+property tests hold to. `LedgerStore` aggregates in SQL, which is what stays
+fast once an account has a million entries behind it. A test asserts the two
+agree, because the moment they drift the fast one silently becomes wrong.
+
 ## Layout
 
 | Module | Depends on | What it holds |
@@ -79,10 +86,31 @@ seen passing is not evidence of anything.
 | `ledger-persistence` | domain | JPA mappings, Flyway migrations |
 | `ledger-app` | persistence | A runnable application over the library |
 
+## Append-only, enforced by the database
+
+The library never updates or deletes an entry — a correction is a reversing
+transaction. But "never" in application code means "never on this code path",
+and an audit trail a stray `UPDATE` can rewrite is not an audit trail. So the
+tables refuse:
+
+```
+ERROR: UPDATE on entries is not permitted: the ledger is append-only.
+       Post a reversing transaction instead.
+```
+
+Two tests assert exactly that, by issuing the statements the library never
+would.
+
+## Balances two ways, checked against each other
+
+`Journal.balanceOf` replays every entry — the readable definition. `LedgerStore`
+aggregates in SQL — the one that stays fast when an account has a million entries
+behind it. A test asserts the two agree, because a fast path that quietly
+disagrees with the slow one is worse than not having it.
+
 ## Status
 
-Early. The domain model is in place and covered; persistence is scaffolded but
-empty.
+The domain model and persistence are in place and covered.
 
 | | |
 |---|---|
@@ -91,8 +119,11 @@ empty.
 | `Journal` — balances, point-in-time balances | ✅ |
 | Property-based test suite (16 properties) | ✅ |
 | Architecture test enforcing the domain boundary | ✅ |
-| Persistence: Flyway schema, JPA mappings, optimistic locking | 🚧 |
-| Idempotency keys | ⬜ |
+| Flyway schema with append-only triggers | ✅ |
+| JPA mappings, optimistic locking on account metadata | ✅ |
+| Idempotency keys, settled by a unique constraint | ✅ |
+| Testcontainers suite against real Postgres | ✅ |
+| REST API over the library | 🚧 |
 | JMH benchmarks (balance over 10K / 100K / 1M entries) | ⬜ |
 | Spring Modulith boundary tests | ⬜ |
 

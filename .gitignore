@@ -10,9 +10,14 @@ build/
 *.iws
 .vscode/
 nbproject/
+bin/
 
 # OS
 .DS_Store
+
+# jqwik's local replay database: it records the samples that failed here,
+# so it is a property of this machine's last run, not of the project.
+.jqwik-database
 
 # Java
 *.class

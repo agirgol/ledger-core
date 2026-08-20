@@ -13,7 +13,6 @@ java {
 dependencyManagement {
     imports {
         mavenBom(libs.spring.modulith.bom.get().toString())
-        mavenBom(libs.testcontainers.bom.get().toString())
     }
 }
 
@@ -25,8 +24,8 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-postgresql")
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
