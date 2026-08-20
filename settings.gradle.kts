@@ -13,4 +13,5 @@ include(
     "ledger-domain",
     "ledger-persistence",
     "ledger-app",
+    "ledger-benchmarks",
 )

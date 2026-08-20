@@ -71,12 +71,28 @@ An ArchUnit test fails the build if that stops being true — and it ships with 
 demonstration that it can fail, because a boundary check that has only ever been
 seen passing is not evidence of anything.
 
-## Two ways to read a balance
+## Two ways to read a balance, and what each costs
 
 `Journal` replays every entry — the readable definition, and the one the
-property tests hold to. `LedgerStore` aggregates in SQL, which is what stays
-fast once an account has a million entries behind it. A test asserts the two
+property tests hold to. `LedgerStore` aggregates in SQL. A test asserts the two
 agree, because the moment they drift the fast one silently becomes wrong.
+
+Agreement was never the interesting part; if they disagreed, one of them would
+be a bug. The interesting part is the gap:
+
+| entries on the account | aggregate in SQL | load the book and replay it |
+|---|---|---|
+| 10 000 | 1.0 ms | 13 ms |
+| 100 000 | 8.1 ms | 144 ms |
+| 1 000 000 | 60 ms | 1 939 ms |
+
+JMH, average time, against Postgres 17 in Docker on Apple Silicon. Read the
+replay column as an order of magnitude rather than a figure: a million domain
+objects makes it an allocation benchmark as much as a balance one, and its
+error bars are wide enough to say so.
+
+That is the whole argument for `LedgerStore` carrying a second way to answer a
+question the domain already answers.
 
 ## Layout
 
@@ -85,6 +101,7 @@ agree, because the moment they drift the fast one silently becomes wrong.
 | `ledger-domain` | nothing | `Money`, `Account`, `Entry`, `Transaction`, `Journal` |
 | `ledger-persistence` | domain | JPA mappings, Flyway migrations |
 | `ledger-app` | persistence | A runnable application over the library |
+| `ledger-benchmarks` | domain, persistence | JMH measurements of both balance paths |
 
 ## Append-only, enforced by the database
 
@@ -101,12 +118,34 @@ ERROR: UPDATE on entries is not permitted: the ledger is append-only.
 Two tests assert exactly that, by issuing the statements the library never
 would.
 
-## Balances two ways, checked against each other
+## The benchmark changed the schema
 
-`Journal.balanceOf` replays every entry — the readable definition. `LedgerStore`
-aggregates in SQL — the one that stays fast when an account has a million entries
-behind it. A test asserts the two agree, because a fast path that quietly
-disagrees with the slow one is worse than not having it.
+A balance as of a moment first asked the database to join every entry of an
+account back to `transactions` for its timestamp. Measured over a million
+entries, that join cost 157 ms — against 52 ms for the same sum with no time
+bound at all. Three times the arithmetic it qualified, spent on reaching a
+column.
+
+So V2 puts the timestamp on the entry, and the query stopped joining:
+
+| entries on the account | via the join | on the entry |
+|---|---|---|
+| 10 000 | 2.8 ms | 1.0 ms |
+| 100 000 | 21 ms | 8.1 ms |
+| 1 000 000 | 157 ms | 60 ms |
+
+At a million entries the point-in-time filter now costs 7 ms over the
+unfiltered sum, where it used to cost 105. Both queries are still in the
+benchmark — the old one as a control — so the claim above can be re-run rather
+than believed.
+
+Copying a column is normally a trade of correctness for speed, since the copy
+can drift. This one cannot. Both tables reject `UPDATE`, so neither value can
+change after it is written, and the application never writes the copy at all: a
+`BEFORE INSERT` trigger derives it from the parent row and overwrites whatever
+was supplied. Backfilling it meant taking the immutability trigger off for the
+length of the migration, which is the only moment in this schema's life that an
+entry has been allowed to change.
 
 ## Status
 
@@ -123,8 +162,8 @@ The domain model and persistence are in place and covered.
 | JPA mappings, optimistic locking on account metadata | ✅ |
 | Idempotency keys, settled by a unique constraint | ✅ |
 | Testcontainers suite against real Postgres | ✅ |
+| JMH benchmarks (balance over 10K / 100K / 1M entries) | ✅ |
 | REST API over the library | 🚧 |
-| JMH benchmarks (balance over 10K / 100K / 1M entries) | ⬜ |
 | Spring Modulith boundary tests | ⬜ |
 
 ## Building
@@ -136,6 +175,18 @@ The domain model and persistence are in place and covered.
 Java 21. Persistence tests use Testcontainers against real Postgres rather than
 H2 — a ledger leans on numeric precision and isolation semantics that an
 in-memory database with different rules would not exercise.
+
+The benchmarks are not part of `build`; they take minutes and they are a
+measurement, not a check:
+
+```sh
+./gradlew :ledger-benchmarks:jmh                                  # everything
+./gradlew :ledger-benchmarks:jmh -PjmhArgs="JournalBalanceBenchmark"
+```
+
+The stored benchmarks refuse to start timing until every balance path returns
+the same number, because a benchmark that measures the wrong answer still
+produces a figure and the figure still ends up in a README.
 
 ## Licence
 

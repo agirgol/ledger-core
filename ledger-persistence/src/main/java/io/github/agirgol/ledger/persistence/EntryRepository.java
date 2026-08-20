@@ -15,6 +15,11 @@ interface EntryRepository extends JpaRepository<EntryEntity, Long> {
      * ledger's whole point is that it keeps growing: an account with a million
      * entries should not need a million objects to answer what its balance is.
      *
+     * <p>The time bound reads {@code e.occurredAt} rather than joining back to
+     * the transaction. The two always agree — the database derives one from the
+     * other and neither table accepts an update — and the join was measured at
+     * three times the cost of the sum it qualified.
+     *
      * <p>The sign is raw — debits positive — and is turned into a balance by
      * the account's type in {@link LedgerStore}. Doing that here would mean the
      * query knowing about account classification, which is domain knowledge and
@@ -26,7 +31,7 @@ interface EntryRepository extends JpaRepository<EntryEntity, Long> {
             from EntryEntity e
             where e.accountId = :accountId
               and e.currency = :currency
-              and e.transaction.occurredAt <= :asOf
+              and e.occurredAt <= :asOf
             """)
     BigDecimal netByAccount(
             @Param("accountId") String accountId,

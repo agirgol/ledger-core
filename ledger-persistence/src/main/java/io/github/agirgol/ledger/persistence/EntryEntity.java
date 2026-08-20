@@ -16,6 +16,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Currency;
 
 /** The stored form of an {@link Entry}. Never updated; see the schema triggers. */
@@ -49,6 +50,17 @@ class EntryEntity {
 
     @Column(nullable = false, length = 3)
     private String currency;
+
+    /**
+     * The parent transaction's timestamp, derived by the database.
+     *
+     * <p>Not insertable and not updatable on purpose: a trigger fills it from
+     * the parent row, so there is no code path here that could write a value
+     * that disagrees with the transaction. It is mapped only so the balance
+     * query can filter on it without joining back.
+     */
+    @Column(name = "occurred_at", nullable = false, insertable = false, updatable = false)
+    private Instant occurredAt;
 
     protected EntryEntity() {
         // for JPA
