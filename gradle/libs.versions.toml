@@ -1,0 +1,34 @@
+# Version catalog: every dependency version lives here, nowhere else.
+[versions]
+springBoot = "4.1.0"
+springModulith = "2.1.0"
+junit = "6.1.0"
+assertj = "3.27.7"
+jqwik = "1.10.1"
+testcontainers = "2.0.5"
+archunit = "1.5.0"
+jmh = "1.37"
+
+[libraries]
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "springModulith" }
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+
+# Property-based testing. The headline guarantee of this library — that debits
+# equal credits no matter what sequence of transactions is applied — is a
+# statement about all inputs, so it is tested against generated ones rather
+# than a handful somebody thought of.
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
+
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
+jmh-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version = "1.1.7" }
