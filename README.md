@@ -108,7 +108,7 @@ question the domain already answers.
 |---|---|---|
 | `ledger-domain` | nothing | `Money`, `Account`, `Entry`, `Transaction`, `Journal` |
 | `ledger-persistence` | domain | JPA mappings, Flyway migrations |
-| `ledger-app` | persistence | A runnable application over the library |
+| `ledger-app` | persistence | HTTP surface over the library |
 | `ledger-benchmarks` | domain, persistence | JMH measurements of both balance paths |
 
 ## Append-only, enforced by the database
@@ -155,6 +155,50 @@ was supplied. Backfilling it meant taking the immutability trigger off for the
 length of the migration, which is the only moment in this schema's life that an
 entry has been allowed to change.
 
+## The HTTP surface
+
+`ledger-app` runs the library over HTTP. It is not part of what a consumer
+depends on — the library is `ledger-domain` and `ledger-persistence` — and it
+exists so the whole thing can be exercised end to end.
+
+| | |
+|---|---|
+| `POST /accounts` | Open an account. Idempotent, so 200 rather than 201: reporting "created" on a call that created nothing is a claim the client cannot check. |
+| `GET /accounts/{id}` | The account, or 404. |
+| `GET /accounts/{id}/balance?asOf=` | The balance, optionally as it stood at a moment. |
+| `POST /transactions` | Post a transaction. An `Idempotency-Key` header makes a retry safe; the second call returns the first one's transaction with 200. |
+| `GET /transactions/{id}` | What was posted. |
+
+Refusals come back as RFC 9457 problem documents, and they are 422 rather than
+400. The request parsed, the fields were the right types, a schema validator
+would have passed it — what failed is the accounting:
+
+```http
+HTTP/1.1 422 Unprocessable Content
+Content-Type: application/problem+json
+
+{
+  "type": "/problems/unbalanced-transaction",
+  "title": "Transaction does not balance",
+  "detail": "Debits and credits do not balance. TRY: debits exceed credits by 40.00 TRY. Every currency in a transaction must balance on its own; a transaction that nets to zero across currencies is still two unbalanced books.",
+  "imbalance": { "TRY": "40.00" }
+}
+```
+
+Being told a transaction is unbalanced is not something a caller can act on.
+Being told the debits are 40.00 TRY ahead is. The same applies to the rest:
+an account that was never opened comes back named, an amount carrying more
+decimal places than its currency has is refused rather than rounded, and a
+currency code that is not ISO 4217 is rejected as such rather than as a lookup
+failure.
+
+Amounts cross the wire as strings. JSON would carry the decimal exactly, but a
+client that parses it into a double would not, and a library that refuses
+`double` internally has no business handing one out at its edge.
+
+Nine tests cover this surface against a real Postgres, and seven of them assert
+a refusal. Posting a balanced transaction is the easy half.
+
 ## Status
 
 The domain model and persistence are in place and covered.
@@ -171,7 +215,7 @@ The domain model and persistence are in place and covered.
 | Idempotency keys, settled by a unique constraint | ✅ |
 | Testcontainers suite against real Postgres | ✅ |
 | JMH benchmarks (balance over 10K / 100K / 1M entries) | ✅ |
-| REST API over the library | 🚧 |
+| HTTP API with RFC 9457 problem responses | ✅ |
 
 ## Building
 
@@ -182,6 +226,23 @@ The domain model and persistence are in place and covered.
 Java 21. Persistence tests use Testcontainers against real Postgres rather than
 H2 — a ledger leans on numeric precision and isolation semantics that an
 in-memory database with different rules would not exercise.
+
+To run the HTTP application you supply a database. There are no datasource
+defaults in `application.yaml` on purpose — a ledger that quietly connects to
+whatever is listening on localhost is worse than one that refuses to start:
+
+```sh
+docker run -d --name ledger-db -p 5432:5432 \
+  -e POSTGRES_DB=ledger -e POSTGRES_PASSWORD=ledger postgres:17-alpine
+
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/ledger \
+SPRING_DATASOURCE_USERNAME=postgres \
+SPRING_DATASOURCE_PASSWORD=ledger \
+./gradlew :ledger-app:bootRun
+```
+
+Flyway applies the schema on startup; Hibernate then validates its mappings
+against it and fails fast if they disagree.
 
 The benchmarks are not part of `build`; they take minutes and they are a
 measurement, not a check:

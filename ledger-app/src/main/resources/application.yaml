@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: ledger-core
+
+  # Flyway owns the schema; Hibernate only checks that its mappings match what
+  # the migrations produced. Letting ddl-auto create tables would give a schema
+  # without the append-only triggers — that is, a ledger that can be edited.
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+
+  # No datasource defaults here on purpose. A ledger pointed at whatever
+  # happened to be on localhost:5432 is worse than one that refuses to start.
+  # Supply SPRING_DATASOURCE_URL, _USERNAME and _PASSWORD.
+
+server:
+  error:
+    include-message: never
