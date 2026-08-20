@@ -7,8 +7,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * A runnable application over the library, not the library itself.
  *
  * <p>`ledger-domain` and `ledger-persistence` are what a consumer depends on.
- * This module exists so the library can be demonstrated end to end — and so the
- * Spring Modulith tests have a context to verify module boundaries against.
+ * This module exists so the library can be demonstrated end to end, and nothing
+ * here is on the path of a caller using it as a library.
  */
 @SpringBootApplication
 public class LedgerApplication {

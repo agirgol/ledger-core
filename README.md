@@ -71,6 +71,14 @@ An ArchUnit test fails the build if that stops being true — and it ships with 
 demonstration that it can fail, because a boundary check that has only ever been
 seen passing is not evidence of anything.
 
+Spring Modulith was the obvious tool for this and is deliberately not used. Its
+strong form declares a module's allowed dependencies in a `package-info.java`
+annotation — which would put a Spring type in the one package whose whole claim
+is that it has none, so the check would break what it checks. Its weaker form
+looks for cycles between packages, and cycles are already impossible here: these
+are separate Gradle modules, and `ledger-domain` declares no dependencies at
+all, so the compiler settles it before any test runs.
+
 ## Two ways to read a balance, and what each costs
 
 `Journal` replays every entry — the readable definition, and the one the
@@ -164,7 +172,6 @@ The domain model and persistence are in place and covered.
 | Testcontainers suite against real Postgres | ✅ |
 | JMH benchmarks (balance over 10K / 100K / 1M entries) | ✅ |
 | REST API over the library | 🚧 |
-| Spring Modulith boundary tests | ⬜ |
 
 ## Building
 
