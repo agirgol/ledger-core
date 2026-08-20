@@ -40,8 +40,9 @@ invisibly wrong:
   books are wrong and something intends to fix them later.
 - **Every currency balances on its own.** Lira debits offset by dollar credits
   net to zero only if you assume a rate, and a ledger that assumes one has
-  invented a number. Cross-currency movement is an explicit conversion, so the
-  rate used is part of the record.
+  invented a number. A transaction may touch several currencies, but each has to
+  square by itself, so turning one into another is something you post
+  deliberately rather than something an operator does behind your back.
 - **Never `double`.** Binary floating point cannot represent 0.10. In a ledger
   those fractions do not cancel out, they accumulate.
 - **Amounts are positive; direction is the side.** A negative debit and a

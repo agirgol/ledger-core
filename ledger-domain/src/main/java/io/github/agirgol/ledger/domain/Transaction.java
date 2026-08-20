@@ -20,9 +20,9 @@ import java.util.Set;
  *
  * <p><b>Each currency balances on its own.</b> A transaction whose lira debits
  * are offset by dollar credits nets to zero only if you assume an exchange
- * rate, and a ledger that assumes one has invented a number. Cross-currency
- * movement is two balanced transactions and an explicit conversion, so the
- * rate used is part of the record.
+ * rate, and a ledger that assumes one has invented a number. A transaction may
+ * span currencies, but each of them has to square by itself; converting between
+ * them is a posting the caller makes, not something this class does for them.
  *
  * <p><b>Nothing is ever deleted.</b> Corrections are {@link #reverse}
  * transactions that post the opposite entries. The original stays, which is

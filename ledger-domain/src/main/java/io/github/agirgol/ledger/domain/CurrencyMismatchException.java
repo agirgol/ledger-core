@@ -12,9 +12,10 @@ import java.util.Currency;
  * happens on every arithmetic operation, and it throws rather than converting.
  *
  * <p>Converting would require a rate, a rate has a date and a source, and a
- * ledger that silently picks one has invented a number. FX belongs in an
- * explicit conversion entry that records which rate was used, not in an
- * addition operator.
+ * ledger that silently picks one has invented a number. So this library does
+ * not hold rates and does not convert: a conversion is posted as entries in
+ * each currency, each side balancing on its own, and which rate produced those
+ * two amounts is the caller's to record.
  */
 public final class CurrencyMismatchException extends IllegalArgumentException {
 
@@ -27,7 +28,7 @@ public final class CurrencyMismatchException extends IllegalArgumentException {
     CurrencyMismatchException(Currency left, Currency right) {
         super("Cannot combine %s and %s: amounts in different currencies are not commensurable. "
                 .formatted(left.getCurrencyCode(), right.getCurrencyCode())
-                + "Record an explicit conversion entry with the rate you used instead.");
+                + "Post the conversion as entries in each currency instead, each side balancing on its own.");
         this.left = left;
         this.right = right;
     }
